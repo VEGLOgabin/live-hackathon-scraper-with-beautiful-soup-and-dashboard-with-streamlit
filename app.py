@@ -120,6 +120,7 @@ def main():
     if st.button('Scrape Data'):
         scrape_hackathons()
         st.experimental_rerun()
+        #
 
 if __name__ == "__main__":
     # Setup scheduler
