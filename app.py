@@ -4,99 +4,173 @@ import sqlite3
 import streamlit as st
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
+import re
+
 
 DATABASE = 'hackathons.db'
 BASE_URL = "https://devpost.com/api/hackathons?page={}"
 
 def create_table():
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS hackathons (
-        Title TEXT,
-        Displayed_Location TEXT,
-        Open_State TEXT,
-        Analytics_Identifier TEXT,
-        Url TEXT PRIMARY KEY,
-        Submission_Period_Dates TEXT,
-        Themes TEXT,
-        Prize_Amount TEXT,
-        Registrations_Count INTEGER,
-        Featured TEXT,
-        Organization_Name TEXT,
-        Winners_Announced TEXT,
-        Submission_Gallery_Url TEXT,
-        Start_A_Submission_Url TEXT,
-        Invite_Only TEXT,
-        Eligibility_Requirement_Invite_Only_Description TEXT
-    )
-    ''')
-    conn.commit()
-    conn.close()
+    conn = None
+    try:
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS hackathons (
+            Title TEXT,
+            Displayed_Location TEXT,
+            Open_State TEXT,
+            Analytics_Identifier TEXT,
+            Url TEXT PRIMARY KEY,
+            Submission_Period_Dates TEXT,
+            Themes TEXT,
+            Prize_Amount TEXT,
+            Registrations_Count INTEGER,
+            Featured TEXT,
+            Organization_Name TEXT,
+            Winners_Announced TEXT,
+            Submission_Gallery_Url TEXT,
+            Start_A_Submission_Url TEXT,
+            Invite_Only TEXT,
+            Eligibility_Requirement_Invite_Only_Description TEXT DEFAULT NULL
+        )
+        ''')
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+
+def check_table_exists():
+    conn = None
+    exists = False
+    try:
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='hackathons'")
+        exists = cursor.fetchone() is not None
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        if conn:
+            conn.close()
+    return exists
 
 def scrape_hackathons():
     print(f"Starting data scrape at {datetime.datetime.now()}")
     page = 1
     number_of_hackathons = 0
-    total_count = 50000  # Initialize with a large number for the loop condition
-    
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
 
-    create_table()
+    conn = None
+    cursor = None
 
-    while True:
-        response = requests.get(BASE_URL.format(page))
-        data = response.json()
-        total_count = data["meta"]["total_count"]
-        hackathons = data['hackathons']
-        
-        if not hackathons:
-            break
+    try:
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
 
-        new_rows = []
-        for item in hackathons:
-            number_of_hackathons += 1
-            row = {
-                "Title": item["title"],
-                "Displayed Location": item["displayed_location"],
-                "Open State": item['open_state'],
-                "Analytics Identifier": item["analytics_identifier"],
-                "Url": item['url'],
-                "Submission Period Dates": item['submission_period_dates'],
-                "Themes": item['themes'],
-                "Prize Amount": item['prize_amount'],
-                "Registrations Count": item['registrations_count'],
-                "Featured": item['featured'],
-                "Organization Name": item['organization_name'],
-                "Winners Announced": item['winners_announced'],
-                "Submission Gallery Url": item['submission_gallery_url'],
-                "Start A Submission Url": item['start_a_submission_url'],
-                "Invite Only": item['invite_only'],
-                "Eligibility Requirement Invite Only Description": item['eligibility_requirement_invite_only_description']
-            }
-            
-            # Check if URL already exists in the database
-            cursor.execute("SELECT 1 FROM hackathons WHERE Url = ?", (row['Url'],))
-            if cursor.fetchone():
-                print(f"Existing row found for URL: {row['Url']}. Stopping scrape.")
-                conn.close()
-                return
-            
-            new_rows.append(row)
-        
-        if new_rows:
-            pd.DataFrame(new_rows).to_sql('hackathons', conn, if_exists='append', index=False)
-        
-        page += 1
+        create_table()  # Ensure the table is created
 
-    conn.close()
+        while True:
+            try:
+                response = requests.get(BASE_URL.format(page))
+                response.raise_for_status()  # Raise an error for bad status codes
+                data = response.json()
+            except requests.RequestException as e:
+                print(f"Request error: {e}")
+                break
+            except ValueError as e:
+                print(f"JSON decode error: {e}")
+                print(f"Response text: {response.text}")
+                break
+
+            hackathons = data.get('hackathons', [])
+
+            if not hackathons:
+                break
+
+            for item in hackathons:
+                number_of_hackathons += 1
+                row = {
+                    "Title": item.get("title", ""),
+                    "Displayed_Location": item.get("displayed_location", {}).get("location", ""),
+                    "Open_State": item.get('open_state', ""),
+                    "Analytics_Identifier": item.get("analytics_identifier", ""),
+                    "Url": item.get('url', ""),
+                    "Submission_Period_Dates": item.get('submission_period_dates', ""),
+                    "Themes": item.get('themes', []),
+                    "Prize_Amount": item.get('prize_amount', ""),
+                    "Registrations_Count": item.get('registrations_count', 0),
+                    "Featured": item.get('featured', ""),
+                    "Organization_Name": item.get('organization_name', ""),
+                    "Winners_Announced": item.get('winners_announced', ""),
+                    "Submission_Gallery_Url": item.get('submission_gallery_url', ""),
+                    "Start_A_Submission_Url": item.get('start_a_submission_url', ""),
+                    "Invite_Only": item.get('invite_only', ""),
+                    "Eligibility_Requirement_Invite_Only_Description": item.get('eligibility_requirement_invite_only_description', "")
+                }
+
+                try:
+                    cursor.execute("SELECT 1 FROM hackathons WHERE Url = ?", (row['Url'],))
+                    if cursor.fetchone():
+                        print(f"Existing row found for URL: {row['Url']}. Skipping insertion.")
+                    else:
+                        row['Themes'] = ', '.join(theme['name'] for theme in row['Themes'])
+                        match = re.search(r'>([\d,]+)<', row["Prize_Amount"])
+                        if match:
+                            amount = match.group(1).replace(',', '')
+                            row["Prize_Amount"] = amount
+                        else:
+                            print(f"No valid amount found in prize data: {row['Prize_Amount']}")
+
+                        # if row["Eligibility_Requirement_Invite_Only_Description"] == '':
+                        #     row["Eligibility_Requirement_Invite_Only_Description"] = "None"
+                        
+                        cursor.execute('''
+                        INSERT INTO hackathons (
+                            Title, Displayed_Location, Open_State, Analytics_Identifier, Url,
+                            Submission_Period_Dates, Themes, Prize_Amount, Registrations_Count,
+                            Featured, Organization_Name, Winners_Announced, Submission_Gallery_Url,
+                            Start_A_Submission_Url, Invite_Only, Eligibility_Requirement_Invite_Only_Description
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            row["Title"], row["Displayed_Location"], row["Open_State"], row["Analytics_Identifier"], row["Url"],
+                            row["Submission_Period_Dates"], row["Themes"], row["Prize_Amount"], row["Registrations_Count"],
+                            row["Featured"], row["Organization_Name"], row["Winners_Announced"], row["Submission_Gallery_Url"],
+                            row["Start_A_Submission_Url"], row["Invite_Only"], row["Eligibility_Requirement_Invite_Only_Description"]
+                        ))
+                        conn.commit()
+                        print(f"Inserted new row for URL: {row['Url']}")
+
+                except sqlite3.Error as e:
+                    print(f"Database error during insert: {e}")
+
+            page += 1
+
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        if conn:
+            conn.close()
+
     print(f'Scraped {number_of_hackathons} hackathons. Data stored in SQLite database.')
 
 def load_data():
-    conn = sqlite3.connect(DATABASE)
-    df = pd.read_sql_query("SELECT * FROM hackathons", conn)
-    conn.close()
+    conn = None
+    df = pd.DataFrame()
+    try:
+        if not check_table_exists():
+            print("Table 'hackathons' does not exist. Skipping data load.")
+            return df
+        
+        conn = sqlite3.connect(DATABASE)
+        df = pd.read_sql_query("SELECT * FROM hackathons", conn)
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        if conn:
+            conn.close()
     return df
 
 def main():
@@ -118,9 +192,11 @@ def main():
         st.write("No data available")
 
     if st.button('Scrape Data'):
-        scrape_hackathons()
-        st.experimental_rerun()
-        #
+        try:
+            scrape_hackathons()
+        except Exception as e:
+            st.error(f"An error occurred during scraping: {e}")
+        st.session_state.refresh = True
 
 if __name__ == "__main__":
     # Setup scheduler
