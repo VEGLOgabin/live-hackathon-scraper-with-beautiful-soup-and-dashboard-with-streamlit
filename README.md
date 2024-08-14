@@ -6,7 +6,7 @@ live hackathon scraper with beautiful soup and dashboard with streamlit
 
 ### Deployed Streamlit App
 
-## Link: [Hackathons Dashboard](https://your-app-name.streamlit.app)
+## Link: [Hackathons Dashboard](https://live-hackathon-scraper-with-beautiful-soup-and-dashboard-with.streamlit.app/)
 
 ## Project Description
 
