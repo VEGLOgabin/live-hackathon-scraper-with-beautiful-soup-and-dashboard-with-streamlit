@@ -54,4 +54,4 @@ live hackathon scraper with beautiful soup and dashboard with streamlit
 
 ![Histogram of Open States](newplot_1.png)
 
-## Code Concerned for This View: `hackathons_dashboard.py`
+## Code Concerned for This View: `app.py`
