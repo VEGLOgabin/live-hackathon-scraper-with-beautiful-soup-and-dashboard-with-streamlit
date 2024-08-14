@@ -5,6 +5,10 @@ import streamlit as st
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
 import re
+import plotly.express as px
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 DATABASE = 'hackathons.db'
@@ -41,7 +45,6 @@ def create_table():
     finally:
         if conn:
             conn.close()
-
 
 def check_table_exists():
     conn = None
@@ -124,9 +127,6 @@ def scrape_hackathons():
                         else:
                             print(f"No valid amount found in prize data: {row['Prize_Amount']}")
 
-                        # if row["Eligibility_Requirement_Invite_Only_Description"] == '':
-                        #     row["Eligibility_Requirement_Invite_Only_Description"] = "None"
-                        
                         cursor.execute('''
                         INSERT INTO hackathons (
                             Title, Displayed_Location, Open_State, Analytics_Identifier, Url,
@@ -179,15 +179,105 @@ def main():
     df = load_data()
 
     if not df.empty:
-        st.write(df.head(50))
+        # Filter options
+        st.sidebar.header('Filter Options')
+      
+        open_state = st.sidebar.multiselect(
+            'Open State',
+            options=df['Open_State'].unique(),
+            default=df['Open_State'].unique()
+        )
+        
+        displayed_location = st.sidebar.multiselect(
+            'Displayed Location',
+            options=df['Displayed_Location'].unique(),
+            default=df['Displayed_Location'].unique()
+        )
+        themes = st.sidebar.multiselect(
+            'Topics',
+            options=df['Themes'].str.split(', ').explode().unique(),
+            default=df['Themes'].str.split(', ').explode().unique()
+        )
+        
+     
+        
+        filtered_df = df[
+            df['Open_State'].isin(open_state) &
+            df['Displayed_Location'].isin(displayed_location) &
+            df['Themes'].str.contains('|'.join(themes), na=False)
+        ]
+        
+        st.divider()
 
-        csv = df.to_csv(index=False).encode('utf-8')
+
+
+        # Display apply links for open and upcoming hackathons
+        st.subheader('Apply Links for Open and Upcoming Hackathons')
+        show_hackathons = st.checkbox("Show upcoming and open hackathons to apply", key="One")
+        if show_hackathons:
+            
+            for index, row in filtered_df[filtered_df['Open_State'].isin(['open', 'upcoming'])].iterrows():
+                title_col, link_col = st.columns([2, 1])
+                with title_col:
+                    st.subheader(row['Title'])
+                    st.write(f"Location: {row['Displayed_Location']}")
+                with link_col:
+                    
+                    st.link_button("Apply", row['Url'])
+                    
+                st.divider()
+
+            
+
+        # Pie chart for Open State statistics
+        st.subheader('Open State Statistics')
+        state_counts = filtered_df['Open_State'].value_counts().reset_index()
+        state_counts.columns = ['Open State', 'Count']
+        fig = px.pie(state_counts, names='Open State', values='Count', title='Hackathons by Open State')
+        st.plotly_chart(fig)
+        
+        st.divider()
+
+        # Statistics dashboard
+        st.subheader('Statistics Dashboard')
+        total_rows = filtered_df.shape[0]
+        open_count = filtered_df[filtered_df['Open_State'] == 'open'].shape[0]
+        upcoming_count = filtered_df[filtered_df['Open_State'] == 'upcoming'].shape[0]
+        ended_count = filtered_df[filtered_df['Open_State'] == 'ended'].shape[0]
+
+        st.write(f"Total Rows: {total_rows}")
+        st.write(f"Open: {open_count}")
+        st.write(f"Upcoming: {upcoming_count}")
+        st.write(f"Ended: {ended_count}")
+        
+        st.divider()
+
+        # Create histogram
+        fig = px.histogram(filtered_df, x='Open_State', title='Distribution of Open States')
+        st.plotly_chart(fig)
+        
+        st.divider()
+        
+        # Show pandas data frame session
+        st.subheader('View the first fifty rows of the data')
+        show_table = st.checkbox("Show your first fifty filtered data rows as a table", key="Two")
+        if show_table:
+            st.table(filtered_df.head(50))
+        
+        st.divider()
+        
+        csv = filtered_df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="Download data as CSV",
             data=csv,
             file_name='hackathons.csv',
             mime='text/csv'
         )
+        
+        st.divider() # Used to draw a horizontal line to separate 
+        
+        st.snow()
+        # st.balloons()
     else:
         st.write("No data available")
 
