@@ -229,7 +229,7 @@ def main():
         with col2:
             csv = filtered_df.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="Download data as CSV",
+                label="Download the dataset as CSV",
                 data=csv,
                 file_name='hackathons.csv',
                 mime='text/csv'
