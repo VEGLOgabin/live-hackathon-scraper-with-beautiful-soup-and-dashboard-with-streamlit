@@ -182,11 +182,27 @@ def main():
     st.markdown(hide_st_style, unsafe_allow_html=True)
     
     st.title('Hackathons Dashboard')
+    
+    
 
     df = load_data()
+    
 
     if not df.empty:
         # Filter options
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            pass
+        with col2:
+            csv = filtered_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Download data as CSV",
+                data=csv,
+                file_name='hackathons.csv',
+                mime='text/csv'
+            )
+            
+            
         st.sidebar.header('Filter Options')
       
         open_state = st.sidebar.multiselect(
@@ -271,15 +287,15 @@ def main():
         if show_table:
             st.table(filtered_df.head(50))
         
-        st.divider()
+        # st.divider()
         
-        csv = filtered_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Download data as CSV",
-            data=csv,
-            file_name='hackathons.csv',
-            mime='text/csv'
-        )
+        # csv = filtered_df.to_csv(index=False).encode('utf-8')
+        # st.download_button(
+        #     label="Download data as CSV",
+        #     data=csv,
+        #     file_name='hackathons.csv',
+        #     mime='text/csv'
+        # )
         
         st.divider() # Used to draw a horizontal line to separate 
         
