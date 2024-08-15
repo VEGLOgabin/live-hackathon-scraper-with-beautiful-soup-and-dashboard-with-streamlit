@@ -7,9 +7,6 @@ import datetime
 import re
 import plotly.express as px
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 
 DATABASE = 'hackathons.db'
 BASE_URL = "https://devpost.com/api/hackathons?page={}"
@@ -174,6 +171,16 @@ def load_data():
     return df
 
 def main():
+    # ---- HIDE STREAMLIT STYLE ----
+    hide_st_style = """
+                <style>
+                #MainMenu {visibility: hidden;}
+                footer {visibility: hidden;}
+                header {visibility: hidden;}
+                </style>
+                """
+    st.markdown(hide_st_style, unsafe_allow_html=True)
+    
     st.title('Hackathons Dashboard')
 
     df = load_data()
