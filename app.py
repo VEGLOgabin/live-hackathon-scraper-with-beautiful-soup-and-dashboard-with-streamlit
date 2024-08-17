@@ -189,7 +189,7 @@ def main():
                 """
     st.markdown(hide_st_style, unsafe_allow_html=True)
     
-    st.title('Hackathons data scraper  Dashboard')
+    st.title('Live Hackathons data scraper  Dashboard')
     
     
 
@@ -310,15 +310,6 @@ def main():
         if show_table:
             st.table(filtered_df.head(50))
         
-        # st.divider()
-        
-        # csv = filtered_df.to_csv(index=False).encode('utf-8')
-        # st.download_button(
-        #     label="Download data as CSV",
-        #     data=csv,
-        #     file_name='hackathons.csv',
-        #     mime='text/csv'
-        # )
         
         st.divider() # Used to draw a horizontal line to separate 
         
@@ -326,6 +317,17 @@ def main():
         # st.balloons()
     else:
         st.write("No data available")
+        if st.button('Scrape latest data'):
+            with st.spinner("Loading latest data ..."):
+                try:
+                    scrape_hackathons()
+                except Exception as e:
+                    st.error(f"An error occurred during scraping: {e}")
+                st.session_state.refresh = True  
+            st.info("All latest data available pulled from the server successfully")
+            st.success("Done!")  
+        
+        
 
 
 
