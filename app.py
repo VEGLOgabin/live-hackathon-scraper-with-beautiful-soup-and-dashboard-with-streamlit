@@ -313,7 +313,7 @@ def main():
         
         st.divider() # Used to draw a horizontal line to separate 
         
-        st.snow()
+        # st.snow()
         # st.balloons()
     else:
         st.write("No data available")
