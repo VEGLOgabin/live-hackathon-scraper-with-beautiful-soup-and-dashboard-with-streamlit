@@ -38,11 +38,7 @@ live hackathon scraper with beautiful soup and dashboard with streamlit
 
 ## Project Status:
 
-#### The project is fully functional and deployed. It continuously scrapes and updates hackathon data, offering an intuitive dashboard for users to explore and apply for hackathons. Find the deployed app at: [Hackathons Dashboard](https://your-app-name.streamlit.app)
-
-## Looking For:
-
-#### Opportunities to collaborate on similar projects, customize the dashboard for specific needs, or provide ongoing maintenance and support.
+#### The project is fully functional and deployed. It continuously scrapes and updates hackathon data, offering an intuitive dashboard for users to explore and apply for hackathons. Find the deployed app at: [Hackathons Dashboard](https://live-hackathon-scraper-with-beautiful-soup-and-dashboard-with.streamlit.app/)
 
 # APPLICATION VIEW
 
